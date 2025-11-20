@@ -1,29 +1,75 @@
 #include "Renderer.h"
 #include <glad/glad.h>
 
+// Static member initialization
+unsigned int Renderer::s_cubeVAO = 0;
+unsigned int Renderer::s_cubeVBO = 0;
+bool Renderer::s_initialized = false;
+
 Renderer::Renderer() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);  // Backface culling for perf
 }
 
-void Renderer::drawCube(Shader& shader, glm::mat4 model, unsigned int texture) {
-    // Cube vertices (pos, normal, texcoord). This is a unit cube at origin.
+void Renderer::initCubeVAO() {
+    if (s_initialized) return;
+    
+    // Complete cube vertices (pos, normal, texcoord) - 36 vertices (6 faces * 6 vertices)
     float vertices[] = {
         // Front face
         -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,  // Bottom-left
          0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,  // Bottom-right
          0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,  // Top-right
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,  // Top-right
         -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,  // Top-left
-        // Back face (and so on for all 6 faces—I'll abbreviate; copy from a cube tutorial)
-        // ... (Full array is ~288 floats; use online gen or expand below)
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,  // Bottom-left
+        
+        // Back face
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,  // Bottom-left
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,  // Top-right
+         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,  // Bottom-right
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,  // Top-right
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,  // Bottom-left
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,  // Top-left
+        
+        // Left face
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  // Top-right
+        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,  // Top-left
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  // Bottom-left
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  // Bottom-left
+        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  // Bottom-right
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  // Top-right
+        
+        // Right face
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,  // Top-left
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  // Bottom-right
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  // Top-right
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,  // Bottom-right
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,  // Top-left
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  // Bottom-left
+        
+        // Bottom face
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  // Top-right
+         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f,  // Top-left
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,  // Bottom-left
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,  // Bottom-left
+        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f,  // Bottom-right
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,  // Top-right
+        
+        // Top face
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,  // Top-left
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  // Bottom-right
+         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,  // Top-right
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  // Bottom-right
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,  // Top-left
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f   // Bottom-left
     };
 
-    unsigned int VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+    glGenVertexArrays(1, &s_cubeVAO);
+    glGenBuffers(1, &s_cubeVBO);
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindVertexArray(s_cubeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_cubeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Position attribute
@@ -36,23 +82,39 @@ void Renderer::drawCube(Shader& shader, glm::mat4 model, unsigned int texture) {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
+    glBindVertexArray(0);
+    s_initialized = true;
+}
+
+void Renderer::drawCube(Shader& shader, glm::mat4 model, unsigned int texture) {
+    // Initialize cube VAO if not already done
+    if (!s_initialized) {
+        initCubeVAO();
+    }
+
     // Bind texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
 
+    // Use shader and set model matrix
+    // Note: view and projection matrices should be set in the shader before calling this function
     shader.use();
     shader.setMat4("model", model);
-    shader.setMat4("view", glm::lookAt(glm::vec3(0,0,3), glm::vec3(0), glm::vec3(0,1,0)));  // Cam
-    shader.setMat4("projection", glm::perspective(glm::radians(45.0f), 1280.0f/720.0f, 0.1f, 100.0f));
-    shader.setVec3("lightPos", glm::vec3(0,5,5));
-    shader.setVec3("lightColor", glm::vec3(1));
-    shader.setVec3("viewPos", glm::vec3(0,0,3));
     shader.setInt("texture1", 0);
 
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);  // 6 faces * 6 indices
+    // Draw the cube using the static VAO
+    glBindVertexArray(s_cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);  // 6 faces * 6 vertices
+    glBindVertexArray(0);
+}
 
-    // Cleanup (per-frame for now; optimize later)
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
+void Renderer::cleanup() {
+    if (!s_initialized) return;
+    
+    glDeleteVertexArrays(1, &s_cubeVAO);
+    glDeleteBuffers(1, &s_cubeVBO);
+    
+    s_cubeVAO = 0;
+    s_cubeVBO = 0;
+    s_initialized = false;
 }

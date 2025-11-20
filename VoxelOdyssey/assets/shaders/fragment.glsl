@@ -1,15 +1,15 @@
-#version 330 coreout vec4 FragColor;
+#version 330 core
+out vec4 FragColor;
 
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoord;
+in float AO;
 
-
-uniform sampler2d texture1;
+uniform sampler2D texture1;
 uniform vec3 lightPos;
-unifrom vec3 lightColor;
+uniform vec3 lightColor;
 uniform vec3 viewPos;
-
 
 void main() {
     //ambient
@@ -18,18 +18,19 @@ void main() {
 
     //Diffuse
     vec3 norm = normalize(Normal);
-    vec 3 lightDir = normalize(lightPos - FragPos);
+    vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
 
     //Specular
     float specularStrength = 0.5;
-    vec 3 viewDir = normalize(viewPos - FragPos);
+    vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;
 
-    vec3 result = (ambient + diffuse + specular) * texture(texture1, TexCoord).rgb;
+    // Apply ambient occlusion to lighting
+    vec3 lighting = (ambient + diffuse + specular) * AO;
+    vec3 result = lighting * texture(texture1, TexCoord).rgb;
     FragColor = vec4(result, 1.0);
 }
-
