@@ -3,44 +3,55 @@
 #include <iostream>
 
 int main() {
-    try {
-        Window window (1280,720, "Voxel Odyssey");
+    // ... Window setup
 
-        if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-            throw std::runtime_error("Glad init failed");
-        }
-
-        std::cout << "OpenGL Version: " <<glGetString(GL_VERSION) <<std::endl;
-
-        //basic clear loop
-        while (!window.shouldClose()) {
-            glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // creates a teal colored background
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            static unsigned int texture = 0;  // Load once
-              if (!texture) {
-            // stb_image load code here (int width, height, nrChannels; unsigned char* data = stbi_load("assets/textures/block_atlas.png", &width, &height, &nrChannels, 0);
-                             glGenTextures(1, &texture);
-                             glBindTexture(GL_TEXTURE_2D, texture);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-                             stbi_image_free(data);
-                            }
-
-Renderer renderer;
-Shader shader("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
-glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.0f));  // Move it
-renderer.drawCube(shader, model, texture);
-
-            window.swapBufferes();
-            window.pollEvents();
-        }
-    } catch (const std::exception& e) {
-        std:cerr << "Error: " << e.what() << std::endl;
-        return-1;
+    // Texture load (once)
+    unsigned int texture = 0;
+    int width, height, channels;
+    stbi_set_flip_vertically_on_load(true);  // GL convention
+    unsigned char* data = stbi_load("assets/textures/atlas.png", &width, &height, &channels, 0);
+    if (data) {
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        GLenum format = channels == 4 ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        stbi_image_free(data);
     }
+
+    World world;
+    Shader shader("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
+
+    // Cam setup (fixed for now)
+    glm::vec3 camPos(8, 10, 8);  // Eye level over chunk
+    glm::mat4 view = glm::lookAt(camPos, camPos + glm::vec3(0,-1,0), glm::vec3(0,1,0));
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f), 1280.0f/720.0f, 0.1f, 1000.0f);
+
+    while (!window.shouldClose()) {
+        float time = (float)glfwGetTime();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Update
+        world.update(camPos);
+
+        // Render
+        shader.use();
+        shader.setMat4("view", view);
+        shader.setMat4("projection", proj);
+        shader.setVec3("viewPos", camPos);
+        shader.setVec3("lightPos", camPos + glm::vec3(10,10,10));  // Sun-ish
+
+        world.render(shader, texture);
+
+        window.swapBuffers();
+        window.pollEvents();
+    }
+
+    // Cleanup texture
+    glDeleteTextures(1, &texture);
     return 0;
 }
